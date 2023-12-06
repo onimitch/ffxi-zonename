@@ -4,8 +4,8 @@
 
 -- Define addon information
 addon.name = 'zonename'
-addon.author = 'Xenonsmurf. Japanese support and other improvemnets by onimitch.'
-addon.version = '2.0'
+addon.author = 'Xenonsmurf. Japanese support and other improvements by onimitch.'
+addon.version = '2.1'
 addon.desc = 'Displays the zone and region name for a short time while changing zones.'
 addon.link = 'https://github.com/onimitch/ffxi-zonename'
 
@@ -25,8 +25,8 @@ local screenCenter = {
 -- Zone name settings and objects
 local zonename = {
     visible = false,
-    zone_name_text = {},
-    region_name_text = {},
+    zone_name_text = nil,
+    region_name_text = nil,
     lang_id = 'en',
     fade_start_time = nil,
 
@@ -131,9 +131,14 @@ local function updateFade()
     end
 end
 
--- Register events to load and unload the addon
-ashita.events.register('load', 'zonename_load', function()
-    zonename.settings = settings.load(zonename.defaults)  -- Load settings with default values
+local function initialise()
+    if zonename.zone_name_text ~= nil then
+        gdi:destroy_object(zonename.zone_name_text)
+    end
+    if zonename.region_name_text ~= nil then
+        gdi:destroy_object(zonename.region_name_text)
+    end
+
     zonename.zone_name_text = gdi:create_object(zonename.settings.zone_name)  -- Create a font object for zone name display
     zonename.region_name_text = gdi:create_object(zonename.settings.region_name)  -- Create a font object for region name display
 
@@ -153,13 +158,20 @@ ashita.events.register('load', 'zonename_load', function()
 
     zonename.zone_name_text:set_visible(false)
     zonename.region_name_text:set_visible(false)
+end
 
+-- Register events to load and unload the addon
+ashita.events.register('load', 'zonename_load', function()
+    zonename.settings = settings.load(zonename.defaults)  -- Load settings with default values
+    
     -- Get language
     local lang = AshitaCore:GetConfigurationManager():GetInt32('boot', 'ashita.language', 'playonline', 2)
     zonename.lang_id = 'en'
     if lang == 1 then
         zonename.lang_id = 'ja'
     end
+
+    initialise()
 end)
 
 ashita.events.register('unload', 'zonename_unload', function()
@@ -187,6 +199,15 @@ ashita.events.register('command', 'zonename_command', function (e)
     -- Block all zonename related commands..
     e.blocked = true
 
+    -- Handle: /zonename (reload | rl) - Reloads the settings from disk.
+    if (#args == 2 and args[2]:any('reload', 'rl')) then
+        settings.reload()
+        print(chat.header(addon.name):append(chat.message('Settings reloaded from disk.')))
+        onZoneChange()
+        return
+    end
+
+    -- Handle: /zonename test - Force display the zone info.
     if (#args == 2 and args[2]:any('test')) then
         onZoneChange()
         return
@@ -199,3 +220,14 @@ ashita.events.register('d3d_present', 'zonename_present', function()
         updateFade()
     end
 end)
+
+local function update_settings(s)
+    if (s ~= nil) then
+        zonename.settings = s
+    end
+    settings.save()
+    initialise()
+end
+
+-- Registers a callback for the settings to monitor for character switches.
+settings.register('settings', 'settings_update', update_settings)

@@ -20,4 +20,4 @@ This is a port of the Windower Zonename addon.
 ## How to edit the settings
 1. Edit the addon settings file: **_Ashita4/config/addons/zonename/playername/settings.lua_**
 2. Save the file
-3. Type `/addon reload zonename`
+3. Type `/zonename reload`. You'll immediately see the zone info reappear with your new settings.
