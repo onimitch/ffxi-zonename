@@ -4,186 +4,77 @@
 
 -- Define addon information
 addon.name = 'zonename'
-addon.author = 'Xenonsmurf'
-addon.version = '1.1'
-addon.desc = 'Basic Port of Windowers zonename'
-addon.link = 'https://github.com/xenonsmurf/Ashita-4-Plugins-and-Addons'
+addon.author = 'Xenonsmurf. Japanese support and other improvemnets by onimitch.'
+addon.version = '2.0'
+addon.desc = 'Displays the zone and region name for a short time while changing zones.'
+addon.link = 'https://github.com/onimitch/ffxi-zonename'
 
 -- Import necessary modules and libraries
-local bit32 = require("bit") -- Import the bit32 library if not already imported
-local regions = require("regions")  -- Module for region information
-local regionZones = require("regionZones")  -- Module for region-to-zone mapping
-local fonts = require('fonts')  -- Module for text font settings
-local settings = require('settings')  -- Module for managing settings
 require('common')  -- Import a common utility module
+local chat = require("chat")
+local settings = require('settings')  -- Module for managing settings
+local gdi = require('gdifonts.include')
+local encoding = require('gdifonts.encoding')
 
--- Initialize variables
-local currentZoneID, currentZoneName, currentRegionName, showFont, screenWidth, screenHeight, screenCenterX
-local fadeStartTime = nil
-local Alpha = 255
+local scaling = require('scaling')
+local screenCenter = {
+    x = scaling.window.w / 2,
+    y = scaling.window.h / 2,
+}
 
--- Import D3D8 for handling the display
-local d3d8 = require('d3d8')
-local d3d8Device = d3d8.get_device()
+-- Zone name settings and objects
+local zonename = {
+    visible = false,
+    zone_name_text = {},
+    region_name_text = {},
+    lang_id = 'en',
+    fade_start_time = nil,
 
--- Get the dimensions of the viewport
-local result, viewport = d3d8Device:GetViewport()
-if (result == 0) then
-    screenWidth = viewport.Width
-    screenHeight = viewport.Height
-end
-
-screenCenterX = screenWidth / 2
-screenCenterY = screenHeight / 2
-
--- Define default settings for the OSD elements
-local fonts = require('fonts')  -- Import fonts module again, this seems redundant
-local ZoneNameDisplay = {}  -- Initialize an object for displaying zone name
-local RegionNameDisplay = {}  -- Initialize an object for displaying region name
-local osd = {}
-
-local defaults = T{
-    visible = true,  -- Whether the OSD is initially visible
-    font_family = 'Century Schoolbook',  -- Default font family
-    font_height = 20,  -- Default font height
-    color = 0xFFFFD700,  -- Default text color
-    color_outline = 0x0041ab,  -- Default text outline color
-    padding = 0.1,  -- Default text padding
-    bold = true,  -- Default bold text setting
-    italic = false,  -- Default italic text setting
-    position_x = screenCenterX,  -- Default horizontal position
-    position_y = screenCenterY,  -- Default vertical position
-    background = T{
-        visible = false,  -- Whether the background is visible
-        color = 0x80000000,  -- Background color
-    }
-};
-
--- Register events to load and unload the addon
-ashita.events.register('load', 'load_callback1', function()
-    osd.settings = settings.load(defaults)  -- Load settings with default values
-    ZoneNameDisplay = fonts.new(osd.settings)  -- Create a font object for zone name display
-    RegionNameDisplay = fonts.new(osd.settings)  -- Create a font object for region name display
-end)
-
-ashita.events.register('unload', 'unload_callback1', function()
-end)
-
--- Register a packet_in event to handle zone change information
-ashita.events.register('packet_in', 'packet_in_callback1', function(event)
-    if event.id == 0x0A then  -- Check if it's a zone change packet
-        local moghouse = struct.unpack('b', event.data, 0x80 + 1)
-        if moghouse ~= 1 then
-            coroutine.sleep(1)
-            ZoneNameDisplay.color  = defaults.color
-            RegionNameDisplay.color  = defaults.color
-            currentZoneID = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0)
-            currentZoneName = AshitaCore:GetResourceManager():GetString('zones.names', currentZoneID)  -- Get the current zone name
-            local regionID = getRegionIDByZoneID(currentZoneID)  -- Get the region ID based on the zone ID
-            currentRegionName = getRegionNameById(regionID)  -- Get the region name based on the region ID
-            if currentRegionName then
-                currentRegionName = "-" .. currentRegionName .. "-"
-                showFont = true
-            else
-                print("[zonename] Region Name not found for the given zone ID, regionZones may need to be updated.")
-            end
-        end
-    end
-end)
-
--- Register a d3d_present event to display the OSD elements
-ashita.events.register('d3d_present', 'present_cb', function()
-    if showFont then
-       setupRegionText()
-       setupZoneText()
-       startFade()
-    end
-end)
-
--- Set up the region text display
-function setupRegionText()
-    local textLength = string.len(currentRegionName)
-    local fontSize = defaults.font_height
-    local textWidth = textLength * fontSize
-    local halfTextWidth = textWidth / 3
-    RegionNameDisplay.position_x = defaults.position_x - halfTextWidth
-    RegionNameDisplay.position_y = defaults.position_y - 330
-    RegionNameDisplay.text = currentRegionName
-end
-
--- Set up the zone text display
-function setupZoneText()
-    local textLength = string.len(currentZoneName)
-    local fontSize = defaults.font_height * 2
-    local textWidth = textLength * fontSize
-    local halfTextWidth = textWidth / 3
-    ZoneNameDisplay.font_height = fontSize
-    ZoneNameDisplay.position_x = defaults.position_x - halfTextWidth
-    ZoneNameDisplay.position_y = defaults.position_y - 300
-    ZoneNameDisplay.text = currentZoneName
-end
-
--- Start the fade effect
-function startFade()
-    if bit32.band(ZoneNameDisplay.color, RegionNameDisplay.color) then
-        local maxAlpha = 255 -- Set the maximum alpha to fully visible
-        local minAlpha = 0 -- Set the minimum alpha to fully transparent
-        local fadeDuration = 6 -- Total duration for fading out in seconds
-
-        if fadeStartTime == nil then
-            fadeStartTime = os.clock() -- Record the start time of the fade
-        end
-
-        local elapsed = os.clock() - fadeStartTime
-        local alpha = maxAlpha - (maxAlpha * (elapsed / fadeDuration))
-
-        -- Ensure alpha doesn't go below the minimum value
-        alpha = math.max(alpha, minAlpha)
-
-        -- Extract the RGB components from the color
-        local r = bit32.band(ZoneNameDisplay.color, 0xFF)
-        local g = bit32.band(bit32.rshift(ZoneNameDisplay.color, 8), 0xFF)
-        local b = bit32.band(bit32.rshift(ZoneNameDisplay.color, 16), 0xFF)
-
-        -- Calculate the new color with adjusted alpha
-        local newColor = bit32.bor(
-            bit32.lshift(alpha, 24),
-            bit32.lshift(b, 16),
-            bit32.lshift(g, 8),
-            r
-        )
-
-        -- Set the updated color
-        ZoneNameDisplay.color = newColor
-        RegionNameDisplay.color = newColor
-        Alpha = alpha
-
-        ZoneNameDisplay.visible = true
-        RegionNameDisplay.visible = true
-
-        -- Reset fading when it's fully faded out
-        if alpha == minAlpha then
-            fadeStartTime = nil
-            showFont = false
-            ZoneNameDisplay.visible = false
-            RegionNameDisplay.visible = false
-        end
-    end
-end
+    regions = require("regions"),
+    region_zones = require("regionZones"),
+    
+    -- Settings defaults
+    defaults = T{
+        fade_after = 5,
+        fade_duration = 1,
+        zone_name = {
+            font_alignment = gdi.Alignment.Center,
+            font_color = 0xFFFFD700,
+            font_family = 'Calibri', -- This could be Arial but we need to use a font that is most likely installed by default
+            font_flags = gdi.FontFlags.Bold,
+            font_height = 50,
+            outline_color = 0xFF0041AB,
+            outline_width = 2,
+            position_x = screenCenter.x,
+            position_y = screenCenter.y - 340,
+        },
+        region_name = {
+            font_alignment = gdi.Alignment.Center,
+            font_color = 0xFFFFD700,
+            font_family = 'Calibri', -- This could be Arial but we need to use a font that is most likely installed by default
+            font_flags = gdi.FontFlags.Bold,
+            font_height = 20,
+            outline_color = 0xFF0041AB,
+            outline_width = 2,
+            position_x = screenCenter.x,
+            position_y = screenCenter.y - 370,
+        },
+    },
+}
 
 -- Function to get the region name by region ID
-function getRegionNameById(id)
-    for _, region in pairs(regions) do
+local function getRegionNameById(id)
+    for _, region in pairs(zonename.regions) do
         if region.id == id then
-            return region.en
+            return region[zonename.lang_id]
         end
     end
     return nil
 end
 
 -- Function to get the region ID by zone ID
-function getRegionIDByZoneID(zoneID)
-    for regionID, zoneIDs in pairs(regionZones.map) do
+local function getRegionIDByZoneID(zoneID)
+    for regionID, zoneIDs in pairs(zonename.region_zones.map) do
         for _, id in ipairs(zoneIDs) do
             if id == zoneID then
                 return regionID
@@ -192,3 +83,119 @@ function getRegionIDByZoneID(zoneID)
     end
     return nil
 end
+
+local function onZoneChange()
+    local currentZoneID = AshitaCore:GetMemoryManager():GetParty():GetMemberZone(0)
+    local currentZoneName = encoding:ShiftJIS_To_UTF8(AshitaCore:GetResourceManager():GetString('zones.names', currentZoneID), true)  -- Get the current zone name
+    local regionID = getRegionIDByZoneID(currentZoneID)  -- Get the region ID based on the zone ID
+    local currentRegionName = getRegionNameById(regionID)  -- Get the region name based on the region ID
+    if currentRegionName then
+        zonename.visible = true
+
+        zonename.zone_name_text:set_text(currentZoneName)
+        zonename.region_name_text:set_text(currentRegionName)
+    else
+        print(chat.header(addon.name):append(chat.error('Unrecognised region. RegionZones data may need to be updated. Region ID: "%s", Zone ID: "%s"'):format(regionID, currentZoneID)))
+    end
+end
+
+-- Update the fade effect
+local function updateFade()
+    local maxAlpha = 1 -- Set the maximum alpha to fully visible
+    local minAlpha = 0 -- Set the minimum alpha to fully transparent
+    local fadeDuration = zonename.settings.fade_duration -- Total duration for fading out in seconds
+    local fadeAfter = zonename.settings.fade_after
+
+    if zonename.fade_start_time == nil then
+        zonename.fade_start_time = os.clock() -- Record the start time of the fade
+        zonename.zone_name_text:set_visible(true)
+        zonename.region_name_text:set_visible(true)
+    end
+
+    local elapsed = math.max(0, os.clock() - zonename.fade_start_time - fadeAfter)
+    local alpha = maxAlpha - (maxAlpha * (elapsed / fadeDuration))
+
+    -- Ensure alpha doesn't go below the minimum value
+    alpha = math.max(alpha, minAlpha)
+
+    -- Set the updated alpha
+    zonename.zone_name_text:set_opacity(alpha)
+    zonename.region_name_text:set_opacity(alpha)
+
+    -- Reset fading when it's fully faded out
+    if alpha == minAlpha then
+        zonename.fade_start_time = nil
+        zonename.visible = false
+        zonename.zone_name_text:set_visible(false)
+        zonename.region_name_text:set_visible(false)
+    end
+end
+
+-- Register events to load and unload the addon
+ashita.events.register('load', 'zonename_load', function()
+    zonename.settings = settings.load(zonename.defaults)  -- Load settings with default values
+    zonename.zone_name_text = gdi:create_object(zonename.settings.zone_name)  -- Create a font object for zone name display
+    zonename.region_name_text = gdi:create_object(zonename.settings.region_name)  -- Create a font object for region name display
+
+    -- Check if font is available, otherwise it won't render
+    local zone_font_family = zonename.settings.zone_name.font_family
+    if not gdi:get_font_available(zone_font_family) then
+        zonename.zone_name_text:set_font_family('Arial')
+        print(chat.header(addon.name):append(chat.error('Font not available: %s, reverting to Arial.'):format(zone_font_family)))
+    end
+    local region_font_family = zonename.settings.region_name.font_family
+    if not gdi:get_font_available(region_font_family) then
+        zonename.region_name_text:set_font_family('Arial')
+        if zone_font_family ~= region_font_family then
+            print(chat.header(addon.name):append(chat.error('Font not available: %s, reverting to Arial.'):format(region_font_family)))
+        end
+    end
+
+    zonename.zone_name_text:set_visible(false)
+    zonename.region_name_text:set_visible(false)
+
+    -- Get language
+    local lang = AshitaCore:GetConfigurationManager():GetInt32('boot', 'ashita.language', 'playonline', 2)
+    zonename.lang_id = 'en'
+    if lang == 1 then
+        zonename.lang_id = 'ja'
+    end
+end)
+
+ashita.events.register('unload', 'zonename_unload', function()
+    gdi:destroy_interface()
+end)
+
+-- Register a packet_in event to handle zone change information
+ashita.events.register('packet_in', 'zonename_packet_in', function(event)
+    if event.id == 0x0A then  -- Check if it's a zone change packet
+        local moghouse = struct.unpack('b', event.data, 0x80 + 1)
+        if moghouse ~= 1 then
+            coroutine.sleep(1)
+            onZoneChange()
+        end
+    end
+end)
+
+ashita.events.register('command', 'zonename_command', function (e)
+    -- Parse the command arguments..
+    local args = e.command:args()
+    if (#args == 0 or args[1] ~= '/zonename') then
+        return
+    end
+
+    -- Block all zonename related commands..
+    e.blocked = true
+
+    if (#args == 2 and args[2]:any('test')) then
+        onZoneChange()
+        return
+    end
+end)
+
+-- Register a d3d_present event to display the OSD elements
+ashita.events.register('d3d_present', 'zonename_present', function()
+    if zonename.visible then
+        updateFade()
+    end
+end)
