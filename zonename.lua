@@ -32,7 +32,7 @@ local zonename = {
 
     regions = require("regions"),
     region_zones = require("regionZones"),
-    
+
     -- Settings defaults
     defaults = T{
         fade_after = 5,
@@ -43,6 +43,7 @@ local zonename = {
             font_family = 'Calibri', -- This could be Arial but we need to use a font that is most likely installed by default
             font_flags = gdi.FontFlags.Bold,
             font_height = 50,
+            support_jp = true,
             outline_color = 0xFF0041AB,
             outline_width = 2,
             position_x = screenCenter.x,
@@ -54,6 +55,7 @@ local zonename = {
             font_family = 'Calibri', -- This could be Arial but we need to use a font that is most likely installed by default
             font_flags = gdi.FontFlags.Bold,
             font_height = 20,
+            support_jp = true,
             outline_color = 0xFF0041AB,
             outline_width = 2,
             position_x = screenCenter.x,
@@ -163,12 +165,13 @@ end
 -- Register events to load and unload the addon
 ashita.events.register('load', 'zonename_load', function()
     zonename.settings = settings.load(zonename.defaults)  -- Load settings with default values
-    
+
     -- Get language
     local lang = AshitaCore:GetConfigurationManager():GetInt32('boot', 'ashita.language', 'playonline', 2)
     zonename.lang_id = 'en'
     if lang == 1 then
         zonename.lang_id = 'ja'
+
     end
 
     initialise()

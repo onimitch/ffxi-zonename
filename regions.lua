@@ -54,11 +54,13 @@ local regions = {
     { id = 52, en = "Ra'Kaznar", ja = "ラ・カザナル" },
     { id = 53, en = "Escha", ja = "エスカ" },
     { id = 54, en = "The Far East", ja = "ひんがし" },
-    { id = 97, en = "Gugru Blue", ja = "ググリュー洋を" },
-    { id = 98, en = "Bastore Sea", ja = "バストア海" },       
-    { id = 99, en = "Quon", ja = "クォン" },
-    { id = 100, en = "Mindartia", ja = "ミンダルシア" },
-    { id = 101, en = "Elshimo", ja = "エルシモ" },
+    { id = 55, en = "Valhalla", ja = "ヴァルハラ" },
+    { id = 56, en = "Gugru Blue", ja = "ググリュー洋を" },
+    { id = 57, en = "Bastore Sea", ja = "バストア海" },       
+    { id = 58, en = "Quon", ja = "クォン" },
+    { id = 59, en = "Mindartia", ja = "ミンダルシア" },
+    { id = 60, en = "Elshimo", ja = "エルシモ" },
+    { id = 61, en = "Mordion", ja = "モルディオン" },
 }
 
 return regions
