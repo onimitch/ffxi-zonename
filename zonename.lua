@@ -5,7 +5,7 @@
 -- Define addon information
 addon.name = 'zonename'
 addon.author = 'Xenonsmurf. Japanese support and other improvements by onimitch.'
-addon.version = '2.2'
+addon.version = '2.3'
 addon.desc = 'Displays the zone and region name for a short time while changing zones.'
 addon.link = 'https://github.com/onimitch/ffxi-zonename'
 
