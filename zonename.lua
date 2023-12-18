@@ -217,6 +217,13 @@ end)
 
 -- Register a d3d_present event to display the OSD elements
 ashita.events.register('d3d_present', 'zonename_present', function()
+    -- Don't display unless we have a player entity and we've finished zoning
+    local player = AshitaCore:GetMemoryManager():GetPlayer()
+    local player_ent = GetPlayerEntity()
+    if (player == nil or player.isZoning or player_ent == nil) then
+		return
+	end
+
     if zonename.visible then
         updateFade()
     end
