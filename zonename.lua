@@ -169,10 +169,16 @@ ashita.events.register('load', 'zonename_load', function()
     zonename.lang_id = 'en'
     if lang == 1 then
         zonename.lang_id = 'ja'
-
     end
 
     initialise()
+
+    settings.register('settings', 'settings_update', function(s)
+        if (s ~= nil) then
+            zonename.settings = s
+            initialise()
+        end
+    end)
 end)
 
 ashita.events.register('unload', 'zonename_unload', function()
@@ -228,14 +234,3 @@ ashita.events.register('d3d_present', 'zonename_present', function()
         updateFade()
     end
 end)
-
-local function update_settings(s)
-    if (s ~= nil) then
-        zonename.settings = s
-    end
-    settings.save()
-    initialise()
-end
-
--- Registers a callback for the settings to monitor for character switches.
-settings.register('settings', 'settings_update', update_settings)
